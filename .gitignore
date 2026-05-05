@@ -1,0 +1,40 @@
+# Claude Code local settings (user-specific, not for sharing)
+.claude/settings.local.json
+
+# Environment files (contain secrets like API tokens)
+.env
+.env.local
+*.env
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Editor metadata
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python (in case any agent generates Python helper scripts)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node (in case any agent generates JS helpers)
+node_modules/
+
+# Build outputs
+dist/
+build/
+out/
+
+# Log files
+*.log
+logs/
+
+# OS-level temp files
+*.tmp
+*.bak
