@@ -20,15 +20,16 @@ back-channel reasoning that produced either.
 
 ## Current Implementation Status
 
-- ✅ architect agent (Claude Opus): three-mode agent (Design / Compliance Check / Coordination). Mode 1 (Design) is currently active; Modes 2 and 3 are defined but inactive until engineer and reviewer agents are built.
-- ⏳ engineer agent: not yet implemented
+- ✅ architect agent (Claude Opus): three-mode agent (Design / Compliance Check / Coordination). Mode 1 (Design) and Mode 2 (Compliance Check) are now active; Mode 3 (Coordination) is defined but inactive until the reviewer agent is built.
+- ✅ engineer agent (Claude Sonnet): implements code and tests strictly per architect's specs
 - ⏳ reviewer agents: not yet implemented
   - Default reviewer (claude-reviewer, Claude Opus): planned
   - Backup/alternative reviewer (gpt-reviewer via Codex Plugin CC): future
 
-When engineer and reviewer agents are added, the rules below marked
-[FUTURE: ENABLE WHEN AGENT EXISTS] become active. Until then, they are
-documented intent, not enforced behavior.
+When the reviewer agent is added, the remaining rules marked
+[FUTURE: ENABLE WHEN AGENT EXISTS] and [FUTURE] become active.
+Engineer-related rules are now active; reviewer-related rules remain
+documented intent until claude-reviewer is built.
 
 ## Architecture
 
@@ -43,7 +44,7 @@ Three core agent roles coordinated through a Claude Code main session:
 2. **Engineer**: Implements code strictly following architect's specs. Reports
    completed implementation to the architect for compliance check, not directly
    to the user. Does not commit autonomously and does not communicate with the
-   reviewer. [FUTURE]
+   reviewer.
 3. **Reviewer**: Audits engineer's work in an isolated context. Receives the
    spec, the diff, and test results. Does not see the architect-engineer
    compliance check rounds, the engineer's reasoning, or any architect-engineer
@@ -54,15 +55,15 @@ acceptance/rejection of review feedback rest with the human.
 
 ## Workflow Rules
 
-### Architect Workflow — Mode 1: Design (current)
+### Architect Workflow — Mode 1: Design
 
 When the user describes a high-level goal:
 1. Invoke the architect sub-agent to produce a technical specification
 2. Present the specification to the user for review
 3. Wait for user approval, modification, or rejection before proceeding
-4. Do not implement code yet—engineer agent does not exist
+4. After user approval, hand the spec to the engineer per the Engineer Workflow.
 
-### Architect Workflow — Mode 2: Compliance Check [FUTURE]
+### Architect Workflow — Mode 2: Compliance Check
 
 Triggered when engineer reports completed implementation:
 
@@ -81,7 +82,7 @@ Triggered when reviewer reports findings:
 3. Escalates user-decision items to user
 4. Produces final coordination report with commit message proposal for user approval
 
-### Engineer Workflow [FUTURE: ENABLE WHEN AGENT EXISTS]
+### Engineer Workflow
 
 After architect specification is approved by the user:
 
@@ -133,7 +134,7 @@ Cato is designed for terminal-primary, telegram-auxiliary workflow.
 - Starting new tasks (high-level goals, detailed specifications)
 - Reviewing architect output and approving direction
 - Reviewing reviewer findings and making accept/reject decisions [FUTURE]
-- Adjudicating architect compliance check FAIL outcomes (decide whether the spec needs revision or the goal needs rethinking) [FUTURE]
+- Adjudicating architect compliance check FAIL outcomes (decide whether the spec needs revision or the goal needs rethinking)
 - Reading detailed code, diffs, test output
 - Any input requiring careful thought or extensive typing
 
