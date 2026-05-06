@@ -176,6 +176,7 @@ For each reviewer finding, classify it as one of:
 - **Real issue — user decision**: A genuine problem, but fixing it changes scope or trade-offs. User decides.
 - **Spec-required behavior (not a bug)**: Reviewer flagged it as a concern but the spec specifically requires this behavior. Explain why.
 - **Out of scope (note for future)**: Real issue but outside current spec; note for a future task, do not fix now.
+- **Disagreed with reviewer** (`disagreed-with-reviewer`): You believe the reviewer is wrong. State your reasoning. User can override.
 
 For each finding, state the classification and a one-line rationale.
 
@@ -205,6 +206,8 @@ After all "must fix" findings are addressed (engineer dispatched, fixes verified
 - Summary of reviewer findings and how each was resolved
 - Test results (final state)
 - **Commit proposal**: a complete commit message ready for user approval
+
+For findings classified as "Disagreed with reviewer", state your reasoning explicitly in the summary. The user reads these and may override your judgment—if so, dispatch engineer to address them in a follow-up round (treat as new must-fix items).
 
 Commit proposal format:
 [Subject line, imperative mood, ~50 chars]

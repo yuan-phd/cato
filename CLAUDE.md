@@ -10,16 +10,17 @@ Cato is a multi-agent development workflow system. It coordinates AI agents
 human supervision. The human (the project owner) acts as maintainer—reviewing
 decisions, approving direction changes, and resolving conflicts between agents.
 
-Cato's core principle: each role does very little, with narrow scope and strict boundaries, to maintain quality. The architect designs and verifies; the engineer implements; the reviewer audits. Roles do not overlap. Engineer reports to architect, not directly to the user. Architect-engineer iterate until the implementation matches the spec; only then does work flow to the reviewer for an independent audit.
+Cato's core principle: each role does very little, with narrow scope and strict boundaries, to maintain quality. The architect designs, verifies, and coordinates; the engineer implements; the reviewer audits. Roles do not overlap. Engineer reports to architect, not directly to the user. Architect-engineer iterate until the implementation matches the spec; only then does work flow to the reviewer for an independent audit. Reviewer findings flow back to the architect, who triages them (Mode 3): real issues are dispatched back to the engineer, user-decision items are escalated, and a final report with commit proposal is produced for user approval.
 
 The name comes from Cato the Younger, the Roman senator who opposed Caesar not
 because he was always right, but because procedure mattered. In Cato, every code
-change must pass an independent reviewer that knows nothing of the discussion
-that produced it. The reviewer cannot be persuaded by intent, only by code.
+change must pass an independent reviewer that knows nothing of the architect-engineer
+compliance dialogue. The reviewer is given the spec and the code, but not the
+back-channel reasoning that produced either.
 
 ## Current Implementation Status
 
-- ✅ architect agent (Claude Opus): designs technical specifications
+- ✅ architect agent (Claude Opus): three-mode agent (Design / Compliance Check / Coordination). Mode 1 (Design) is currently active; Modes 2 and 3 are defined but inactive until engineer and reviewer agents are built.
 - ⏳ engineer agent: not yet implemented
 - ⏳ reviewer agents: not yet implemented
   - Default reviewer (claude-reviewer, Claude Opus): planned
@@ -33,28 +34,52 @@ documented intent, not enforced behavior.
 
 Three core agent roles coordinated through a Claude Code main session:
 
-1. **Architect**: Decomposes high-level goals into technical specifications.
-   Outputs structured plans, never writes code directly.
+1. **Architect**: Three-mode role: (1) designs technical specifications from
+   high-level goals (Design); (2) compliance-checks engineer implementations
+   against the spec (Compliance Check); (3) triages reviewer findings and
+   produces final reports with commit proposals (Coordination). Central
+   coordinator — engineer and reviewer never communicate directly with each
+   other or with the user. Never writes code.
 2. **Engineer**: Implements code strictly following architect's specs. Reports
    completed implementation to the architect for compliance check, not directly
    to the user. Does not commit autonomously and does not communicate with the
    reviewer. [FUTURE]
-3. **Reviewer**: Audits engineer's work in an isolated context. Knows nothing
-   of architect's reasoning, engineer's process, or the architect-engineer
-   compliance check rounds. Sees only code (diff and test output). [FUTURE]
+3. **Reviewer**: Audits engineer's work in an isolated context. Receives the
+   spec, the diff, and test results. Does not see the architect-engineer
+   compliance check rounds, the engineer's reasoning, or any architect-engineer
+   dialogue. [FUTURE]
 
 The human is the maintainer—final decisions on conflicts, direction, and
 acceptance/rejection of review feedback rest with the human.
 
 ## Workflow Rules
 
-### Architect Workflow (current)
+### Architect Workflow — Mode 1: Design (current)
 
 When the user describes a high-level goal:
 1. Invoke the architect sub-agent to produce a technical specification
 2. Present the specification to the user for review
 3. Wait for user approval, modification, or rejection before proceeding
 4. Do not implement code yet—engineer agent does not exist
+
+### Architect Workflow — Mode 2: Compliance Check [FUTURE]
+
+Triggered when engineer reports completed implementation:
+
+1. Architect compares implementation (diff, tests) against the spec
+2. Returns one of three states: PASS / NEEDS REVISION / FAIL
+   - NEEDS REVISION: engineer addresses findings, re-reports to architect (loop)
+   - PASS: architect forwards implementation to reviewer
+   - FAIL: architect escalates to user—spec may need revision (If user is unavailable, workflow stops and state is preserved per Reviewer Workflow step 10.)
+
+### Architect Workflow — Mode 3: Coordination [FUTURE]
+
+Triggered when reviewer reports findings:
+
+1. Architect triages findings into 5 categories: must-fix / user-decision / spec-required / out-of-scope / disagreed-with-reviewer
+2. Dispatches engineer for must-fix items; targeted Mode 2 re-check on the fixes
+3. Escalates user-decision items to user
+4. Produces final coordination report with commit message proposal for user approval
 
 ### Engineer Workflow [FUTURE: ENABLE WHEN AGENT EXISTS]
 
@@ -69,23 +94,25 @@ After architect specification is approved by the user:
    - FAIL: report back to user; spec may need revision
 5. Engineer-architect may iterate multiple rounds. There is no fixed limit—the loop continues until architect returns PASS or escalates as FAIL.
 6. The engineer never communicates directly with the reviewer. Architect forwards approved implementation to reviewer.
-7. Engineer never commits autonomously. Commit decisions are made after reviewer findings are resolved.
+7. Engineer never commits. The architect produces a commit proposal in Mode 3 Final Report; user authorizes; main session executes.
 
 ### Reviewer Workflow [FUTURE: ENABLE WHEN AGENT EXISTS]
 
-After architect compliance-check returns PASS:
+After architect Mode 2 returns PASS:
 
 1. Default to claude-reviewer (Claude Opus, isolated context)
-2. Reviewer sees only git diff and test output—not architect spec, not engineer's reasoning, not the architect-engineer compliance check rounds
-3. Reviewer outputs structured findings: critical / warning / suggestion
-4. If critical issues found:
-   - Pause workflow
-   - Notify user (via terminal output and Telegram)
-   - Wait for user decision (accept / reject / partially accept)
-5. If user is unavailable, save state and stop—do not proceed
-6. Retry limit: if 3 consecutive reviews fail, escalate to user
-7. Archive each review to `reviews/review-YYYYMMDD-NNN.md`
-8. After reviewer findings are resolved per user decision, user authorizes commit. Commit is performed by the main session per user instruction.
+2. Reviewer receives the architect's spec (including Concerns to verify), the git diff, and test results. Reviewer does NOT see the architect-engineer compliance check rounds, engineer's reasoning, or any architect-engineer dialogue.
+3. Reviewer applies the Four-Pass framework defined in architect.md (Context, Design, Implementation, Polish)
+4. Reviewer outputs structured findings under the five-tier scheme: Blocking / Important / Nit / Question / Praise
+5. Findings return to the architect, not to the user. The architect performs Mode 3 coordination.
+6. Architect Mode 3 triage:
+   - Must-fix findings: dispatch back to engineer for fixes; targeted Mode 2 re-check on the fixes
+   - User-decision findings: escalate to user with options
+   - Spec-required / out-of-scope / disagreed-with-reviewer: documented in coordination report
+7. Retry ceiling: if the architect dispatches the engineer for fixes 3 consecutive times without resolution, escalate to user even if architect would otherwise continue. This is a safety ceiling against pathological loops; architect may escalate earlier when it judges the loop unproductive.
+8. Archive each review to `reviews/review-YYYYMMDD-NNN.md`
+9. Architect's Mode 3 final report includes a commit message proposal. User approves (or amends) the proposal; main session executes the commit per user instruction.
+10. **User-unavailability safety**: Whenever user input is required (Mode 2 FAIL escalation, Mode 3 user-decision finding, or commit proposal approval) and the user is unavailable, the architect saves state and stops. Workflow does not proceed without explicit user direction. State is preserved (the in-progress task, the spec, the diff, the findings, and the architect's pending question or proposal) so that the workflow can resume cleanly when the user returns.
 
 ### Reviewer Selection Rules [FUTURE]
 
@@ -116,7 +143,7 @@ Telegram is for asynchronous notifications and quick decisions, not primary
 work input.
 
 **Acceptable Telegram input:**
-- Quick decisions on already-presented options ("yes", "fix critical 1 and 3",
+- Quick decisions on already-presented options ("yes", "fix Blocking 1 and 3",
   "reject all suggestions")
 - Status queries ("what's the current task?", "is the engineer done?")
 - Direction changes ("abort current task", "pause and wait for me")
@@ -134,8 +161,8 @@ wait for you to come back to your laptop."
 ## Notification Rules
 
 Claude proactively sends Telegram notifications when:
-- A long-running task completes (engineer, architect compliance check, or reviewer takes more than 3 minutes)
-- Critical review findings are produced [FUTURE]
+- A long-running task completes (engineer, architect compliance check, architect coordination, or reviewer takes more than 3 minutes)
+- Architect Mode 3 coordination produces user-actionable output (user-decision findings or final commit proposal) [FUTURE]
 - The workflow is blocked waiting for user decision
 - The architect compliance check returns FAIL, indicating the spec itself may need revision (this is a user-level decision, not just a workflow block)
 - An error or unexpected state is encountered
@@ -155,7 +182,7 @@ When pushing to Telegram, the message should:
 Significant engineering decisions must be recorded in DECISIONS.md (Architecture
 Decision Records). This includes:
 - Architect specifications that were approved (or rejected and why)
-- Reviewer findings that were accepted vs rejected (with reasoning) [FUTURE]
+- Architect Mode 3 coordination decisions: how reviewer findings were classified (must-fix / user-decision / spec-required / out-of-scope / disagreed-with-reviewer) and how user-decision items were resolved [FUTURE]
 - Direction changes mid-task
 - Choices between competing approaches
 
