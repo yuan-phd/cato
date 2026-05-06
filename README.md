@@ -33,7 +33,6 @@ overnight—not yet, anyway.
 | Reviewer agent (claude-reviewer)       | Active                                    |
 | Reviewer agent (gpt-reviewer, GPT-5)   | Planned (requires Codex Plugin CC)        |
 | Telegram notifications + quick replies | Working (via external plugin)             |
-| Retrospective skill                    | Planned (ADR 017)                         |
 | Bootstrap script for new projects      | Planned                                   |
 | First end-to-end workflow test         | Pending                                   |
 
@@ -107,18 +106,11 @@ A bootstrap script (`scripts/cato-init.sh`) is planned to automate this.
 
 ## Retrospectives
 
-After each completed workflow, a `retrospective.md` is generated in the
-project's root. It documents friction points, observations about agent
-behavior, and candidate patterns for future consideration.
+When something during a workflow prompts genuine reflection, write it down—where you write it is up to you. If you choose to write it inside the project repository as `retrospective.md`, it lives there as part of the project's git history. There is no automated retrospective generation; reflection is need-driven, not scheduled (see [ADR 018](DECISIONS.md)).
 
-Retrospectives belong to the project that produced them—they live inside the
-project repository, are git-tracked, and pushed alongside the rest of the
-code. Cross-project review of retrospectives is manual and infrequent;
-genuinely universal patterns identified during review become candidate ADRs
-that modify Cato's body.
+If a retrospective surfaces a pattern that seems genuinely universal (applicable to projects of any kind, not just this one), the path to making it part of Cato's body is the standard ADR process: write an ADR proposing the change, modify Cato's agents or constitution, commit.
 
-The retrospective skill (`cato-retrospective`) is planned. See ADRs
-[016](DECISIONS.md) and [017](DECISIONS.md).
+Retrospectives belong to projects, not to Cato's body (see [ADR 016](DECISIONS.md)).
 
 ## Telegram Setup
 
@@ -195,7 +187,6 @@ guarantee.
 Near term:
 
 - First end-to-end workflow test on a real task
-- `cato-retrospective` skill
 - Bootstrap script (`scripts/cato-init.sh`) to automate per-project setup
 
 After that:

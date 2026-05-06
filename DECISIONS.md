@@ -221,7 +221,7 @@ for fewer unauthorized agent actions.
 
 **Status**: Accepted
 
-**Context**: After each Cato workflow run, a retrospective documents what was learned during the work—friction points, observations about agent behavior, candidate patterns for future consideration. The question is where retrospectives live: inside each project, in a global Cato-owned location, or somewhere else entirely. Storing retrospectives in Cato's body or in a Cato-adjacent global location risks polluting Cato (per ADR 015) and creates ambiguous ownership. Retrospectives are about a specific project's work—their natural owner is the project itself.
+**Context**: If a retrospective is written for a workflow run, it documents what was learned during the work—friction points, observations about agent behavior, candidate patterns for future consideration. The question is where retrospectives live: inside each project, in a global Cato-owned location, or somewhere else entirely. Storing retrospectives in Cato's body or in a Cato-adjacent global location risks polluting Cato (per ADR 015) and creates ambiguous ownership. Retrospectives are about a specific project's work—their natural owner is the project itself.
 
 **Decision**: Each project's retrospective lives inside the project as `retrospective.md`. The file is git-tracked and pushed alongside the rest of the project's content. Cross-project review of retrospectives is a manual, low-frequency activity—the user navigates project repositories to read retrospectives when reflecting on patterns.
 
@@ -231,10 +231,24 @@ for fewer unauthorized agent actions.
 
 ## ADR 017: Retrospective generation as a skill, not a new agent
 
-**Status**: Accepted
+**Status**: Superseded by ADR 018
+
+**Supersession note**: After further reflection, the retrospective system is not built. See ADR 018 for reasoning.
 
 **Context**: Generating a retrospective at the end of a workflow involves collecting metrics (spec length, compliance loop iterations, finding distributions, commit hash) and prompting the user to add subjective reflection. This is a procedural workflow with no independent judgment—it does not warrant the overhead of a new agent. Two implementation options were considered: extend an existing agent (e.g., have the architect produce retrospectives in Mode 3 final report) or use Claude Code's skill mechanism. Extending an agent violates Cato's "narrow role" principle. Skills are the appropriate mechanism for lightweight workflow templates that the main session executes directly.
 
 **Decision**: Retrospective generation will be implemented as a Claude Code skill (`cato-retrospective`) located in the project's `.claude/skills/` directory. The skill instructs the main session to collect metrics from the just-completed workflow, generate a retrospective draft in the project's `retrospective.md`, and prompt the user to fill in subjective reflection sections. The skill produces only retrospectives—it does not generate new skills or new agent rules.
 
 **Consequences**: No new agent is added; existing agents keep their narrow roles. The skill is lightweight and lives in each project's local `.claude/skills/`, consistent with the per-project deployment model (ADR 014). Retrospective output is text in `retrospective.md`, never code or new tools—this prevents skill-generated artifacts from accidentally becoming part of Cato's body (preserving ADR 015).
+
+---
+
+## ADR 018: Drop the retrospective system; rely on organic reflection
+
+**Status**: Accepted
+
+**Context**: ADR 017 planned a `cato-retrospective` skill to automate retrospective generation after each workflow run. On further reflection, the value of structured retrospectives became uncertain. The mechanism for who captures "decisions made"—main session memory, agents writing their own decision logs, or user discipline—did not have an obviously correct answer. More fundamentally, the value of accumulated retrospectives is unclear: a retrospective written by obligation (because the skill triggered) is likely to produce formulaic content ("nothing notable this time"), which is worse than no retrospective at all.
+
+**Decision**: Do not build the `cato-retrospective` skill. Do not modify agents to log decisions. Reflection happens organically—when something during a workflow genuinely prompts the user to stop and think, they write that thought somewhere of their choosing (project markdown, personal notes, anywhere). When a thought rises to the level of a universal pattern worth changing Cato's body, it goes through the standard ADR process directly, without an intermediate retrospective.
+
+**Consequences**: No automated retrospective infrastructure. No agent changes for decision logging. Reflection is need-driven, not schedule-driven, which keeps reflection authentic when it happens. The trade-off is that subtle observations may be lost if the user does not pause to write them down—this is an accepted cost. The ADR pipeline (genuinely universal pattern → ADR → Cato body change) remains the only path for reflection to affect Cato itself.
