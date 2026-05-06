@@ -92,7 +92,7 @@ After architect specification is approved by the user:
    - PASS: forward to reviewer
    - NEEDS REVISION: engineer addresses findings, re-reports to architect (loop)
    - FAIL: report back to user; spec may need revision
-5. Engineer-architect may iterate multiple rounds. There is no fixed limit—the loop continues until architect returns PASS or escalates as FAIL.
+5. Engineer-architect may iterate multiple rounds. There is no fixed workflow-level limit, but the architect may escalate per its anti-deadlock rule (defined in architect.md) when a loop fails to converge.
 6. The engineer never communicates directly with the reviewer. Architect forwards approved implementation to reviewer.
 7. Engineer never commits. The architect produces a commit proposal in Mode 3 Final Report; user authorizes; main session executes.
 
