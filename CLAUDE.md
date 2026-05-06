@@ -20,16 +20,13 @@ back-channel reasoning that produced either.
 
 ## Current Implementation Status
 
-- ✅ architect agent (Claude Opus): three-mode agent (Design / Compliance Check / Coordination). Mode 1 (Design) and Mode 2 (Compliance Check) are now active; Mode 3 (Coordination) is defined but inactive until the reviewer agent is built.
+- ✅ architect agent (Claude Opus): three-mode agent (Design / Compliance Check / Coordination). Mode 1 (Design), Mode 2 (Compliance Check), and Mode 3 (Coordination) are all now active.
 - ✅ engineer agent (Claude Sonnet): implements code and tests strictly per architect's specs
-- ⏳ reviewer agents: not yet implemented
-  - Default reviewer (claude-reviewer, Claude Opus): planned
-  - Backup/alternative reviewer (gpt-reviewer via Codex Plugin CC): future
+- ✅ reviewer agent (Claude Opus): senior PR reviewer using Four-Pass framework and five-tier findings
+  - Default reviewer (claude-reviewer, Claude Opus): active
+  - Backup/alternative reviewer (gpt-reviewer via Codex Plugin CC): planned for future
 
-When the reviewer agent is added, the remaining rules marked
-[FUTURE: ENABLE WHEN AGENT EXISTS] and [FUTURE] become active.
-Engineer-related rules are now active; reviewer-related rules remain
-documented intent until claude-reviewer is built.
+All sub-agents (architect, engineer, reviewer) are now implemented. The full Cato workflow—from spec design through compliance loops, code review, and coordinated final reports—is active and runnable end-to-end. The rules below describe enforced behavior, not pending intent.
 
 ## Architecture
 
@@ -48,7 +45,7 @@ Three core agent roles coordinated through a Claude Code main session:
 3. **Reviewer**: Audits engineer's work in an isolated context. Receives the
    spec, the diff, and test results. Does not see the architect-engineer
    compliance check rounds, the engineer's reasoning, or any architect-engineer
-   dialogue. [FUTURE]
+   dialogue.
 
 The human is the maintainer—final decisions on conflicts, direction, and
 acceptance/rejection of review feedback rest with the human.
@@ -73,7 +70,7 @@ Triggered when engineer reports completed implementation:
    - PASS: architect forwards implementation to reviewer
    - FAIL: architect escalates to user—spec may need revision (If user is unavailable, workflow stops and state is preserved per Reviewer Workflow step 10.)
 
-### Architect Workflow — Mode 3: Coordination [FUTURE]
+### Architect Workflow — Mode 3: Coordination
 
 Triggered when reviewer reports findings:
 
@@ -97,7 +94,7 @@ After architect specification is approved by the user:
 6. The engineer never communicates directly with the reviewer. Architect forwards approved implementation to reviewer.
 7. Engineer never commits. The architect produces a commit proposal in Mode 3 Final Report; user authorizes; main session executes.
 
-### Reviewer Workflow [FUTURE: ENABLE WHEN AGENT EXISTS]
+### Reviewer Workflow
 
 After architect Mode 2 returns PASS:
 
@@ -115,7 +112,7 @@ After architect Mode 2 returns PASS:
 9. Architect's Mode 3 final report includes a commit message proposal. User approves (or amends) the proposal; main session executes the commit per user instruction.
 10. **User-unavailability safety**: Whenever user input is required (Mode 2 FAIL escalation, Mode 3 user-decision finding, or commit proposal approval) and the user is unavailable, the architect saves state and stops. Workflow does not proceed without explicit user direction. State is preserved (the in-progress task, the spec, the diff, the findings, and the architect's pending question or proposal) so that the workflow can resume cleanly when the user returns.
 
-### Reviewer Selection Rules [FUTURE]
+### Reviewer Selection Rules
 
 - Default reviewer: claude-reviewer (Claude Opus, internal subagent)
 - Backup reviewer: gpt-reviewer (Codex Plugin CC, GPT-5)
@@ -133,7 +130,7 @@ Cato is designed for terminal-primary, telegram-auxiliary workflow.
 
 - Starting new tasks (high-level goals, detailed specifications)
 - Reviewing architect output and approving direction
-- Reviewing reviewer findings and making accept/reject decisions [FUTURE]
+- Reviewing reviewer findings and making accept/reject decisions
 - Adjudicating architect compliance check FAIL outcomes (decide whether the spec needs revision or the goal needs rethinking)
 - Reading detailed code, diffs, test output
 - Any input requiring careful thought or extensive typing
@@ -163,7 +160,7 @@ wait for you to come back to your laptop."
 
 Claude proactively sends Telegram notifications when:
 - A long-running task completes (engineer, architect compliance check, architect coordination, or reviewer takes more than 3 minutes)
-- Architect Mode 3 coordination produces user-actionable output (user-decision findings or final commit proposal) [FUTURE]
+- Architect Mode 3 coordination produces user-actionable output (user-decision findings or final commit proposal)
 - The workflow is blocked waiting for user decision
 - The architect compliance check returns FAIL, indicating the spec itself may need revision (this is a user-level decision, not just a workflow block)
 - An error or unexpected state is encountered
@@ -183,7 +180,7 @@ When pushing to Telegram, the message should:
 Significant engineering decisions must be recorded in DECISIONS.md (Architecture
 Decision Records). This includes:
 - Architect specifications that were approved (or rejected and why)
-- Architect Mode 3 coordination decisions: how reviewer findings were classified (must-fix / user-decision / spec-required / out-of-scope / disagreed-with-reviewer) and how user-decision items were resolved [FUTURE]
+- Architect Mode 3 coordination decisions: how reviewer findings were classified (must-fix / user-decision / spec-required / out-of-scope / disagreed-with-reviewer) and how user-decision items were resolved
 - Direction changes mid-task
 - Choices between competing approaches
 
