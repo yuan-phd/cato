@@ -100,6 +100,8 @@ After architect Mode 2 returns PASS:
 
 1. Default to claude-reviewer (Claude Opus, isolated context)
 2. Reviewer receives the architect's spec (including Concerns to verify), the git diff, and test results. Reviewer does NOT see the architect-engineer compliance check rounds, engineer's reasoning, or any architect-engineer dialogue.
+
+   When invoking the reviewer, the main session must pass only: the architect's specification (including Concerns to verify), the git diff, and test execution results. The main session must NOT include process information about the architect-engineer compliance loop—this includes the number of NEEDS REVISION rounds, specific compliance check findings, the engineer's reasoning during fixes, or any architect-engineer dialogue. The reviewer's isolation from the compliance loop is enforced by what the main session chooses to send, not by what the reviewer chooses to read.
 3. Reviewer applies the Four-Pass framework defined in architect.md (Context, Design, Implementation, Polish)
 4. Reviewer outputs structured findings under the five-tier scheme: Blocking / Important / Nit / Question / Praise
 5. Findings return to the architect, not to the user. The architect performs Mode 3 coordination.
