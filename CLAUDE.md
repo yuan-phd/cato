@@ -10,6 +10,8 @@ Cato is a multi-agent development workflow system. It coordinates AI agents
 human supervision. The human (the project owner) acts as maintainer—reviewing
 decisions, approving direction changes, and resolving conflicts between agents.
 
+Cato's core principle: each role does very little, with narrow scope and strict boundaries, to maintain quality. The architect designs and verifies; the engineer implements; the reviewer audits. Roles do not overlap. Engineer reports to architect, not directly to the user. Architect-engineer iterate until the implementation matches the spec; only then does work flow to the reviewer for an independent audit.
+
 The name comes from Cato the Younger, the Roman senator who opposed Caesar not
 because he was always right, but because procedure mattered. In Cato, every code
 change must pass an independent reviewer that knows nothing of the discussion
@@ -33,11 +35,13 @@ Three core agent roles coordinated through a Claude Code main session:
 
 1. **Architect**: Decomposes high-level goals into technical specifications.
    Outputs structured plans, never writes code directly.
-2. **Engineer**: Implements code strictly following architect's specs.
-   [FUTURE]
+2. **Engineer**: Implements code strictly following architect's specs. Reports
+   completed implementation to the architect for compliance check, not directly
+   to the user. Does not commit autonomously and does not communicate with the
+   reviewer. [FUTURE]
 3. **Reviewer**: Audits engineer's work in an isolated context. Knows nothing
-   of architect's reasoning or engineer's process. Sees only code.
-   [FUTURE]
+   of architect's reasoning, engineer's process, or the architect-engineer
+   compliance check rounds. Sees only code (diff and test output). [FUTURE]
 
 The human is the maintainer—final decisions on conflicts, direction, and
 acceptance/rejection of review feedback rest with the human.
@@ -54,18 +58,25 @@ When the user describes a high-level goal:
 
 ### Engineer Workflow [FUTURE: ENABLE WHEN AGENT EXISTS]
 
-After architect specification is approved:
+After architect specification is approved by the user:
+
 1. Invoke the engineer sub-agent with the spec
-2. Engineer implements changes and commits to git with descriptive messages
-3. After each meaningful commit, automatically invoke reviewer
-4. Do not proceed to next feature until current review is resolved
+2. Engineer implements code and tests strictly following the spec
+3. Engineer does NOT commit—engineer reports completed implementation to architect for compliance check
+4. Architect compliance-checks: returns PASS, NEEDS REVISION, or FAIL
+   - PASS: forward to reviewer
+   - NEEDS REVISION: engineer addresses findings, re-reports to architect (loop)
+   - FAIL: report back to user; spec may need revision
+5. Engineer-architect may iterate multiple rounds. There is no fixed limit—the loop continues until architect returns PASS or escalates as FAIL.
+6. The engineer never communicates directly with the reviewer. Architect forwards approved implementation to reviewer.
+7. Engineer never commits autonomously. Commit decisions are made after reviewer findings are resolved.
 
 ### Reviewer Workflow [FUTURE: ENABLE WHEN AGENT EXISTS]
 
-After engineer commits:
+After architect compliance-check returns PASS:
+
 1. Default to claude-reviewer (Claude Opus, isolated context)
-2. Reviewer sees only git diff and test output—not architect spec, not
-   engineer's reasoning, not previous discussion
+2. Reviewer sees only git diff and test output—not architect spec, not engineer's reasoning, not the architect-engineer compliance check rounds
 3. Reviewer outputs structured findings: critical / warning / suggestion
 4. If critical issues found:
    - Pause workflow
@@ -74,6 +85,7 @@ After engineer commits:
 5. If user is unavailable, save state and stop—do not proceed
 6. Retry limit: if 3 consecutive reviews fail, escalate to user
 7. Archive each review to `reviews/review-YYYYMMDD-NNN.md`
+8. After reviewer findings are resolved per user decision, user authorizes commit. Commit is performed by the main session per user instruction.
 
 ### Reviewer Selection Rules [FUTURE]
 
@@ -94,6 +106,7 @@ Cato is designed for terminal-primary, telegram-auxiliary workflow.
 - Starting new tasks (high-level goals, detailed specifications)
 - Reviewing architect output and approving direction
 - Reviewing reviewer findings and making accept/reject decisions [FUTURE]
+- Adjudicating architect compliance check FAIL outcomes (decide whether the spec needs revision or the goal needs rethinking) [FUTURE]
 - Reading detailed code, diffs, test output
 - Any input requiring careful thought or extensive typing
 
@@ -121,9 +134,10 @@ wait for you to come back to your laptop."
 ## Notification Rules
 
 Claude proactively sends Telegram notifications when:
-- A long-running task completes (engineer or reviewer takes more than 3 minutes)
+- A long-running task completes (engineer, architect compliance check, or reviewer takes more than 3 minutes)
 - Critical review findings are produced [FUTURE]
 - The workflow is blocked waiting for user decision
+- The architect compliance check returns FAIL, indicating the spec itself may need revision (this is a user-level decision, not just a workflow block)
 - An error or unexpected state is encountered
 
 Claude does NOT push to Telegram when:
