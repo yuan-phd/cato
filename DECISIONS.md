@@ -190,3 +190,51 @@ for fewer unauthorized agent actions.
 **Decision**: Agent prompts are kept as compact as possible while preserving every functional rule. Verbosity is removed; redundant restatements across sections are merged. New rules are added based on observed need, not preventive specification. Architect.md (currently ~400 lines) is left unsimplified for now—decision deferred until real workflow data shows which rules matter.
 
 **Consequences**: Per-invocation token cost stays manageable. Rules are discoverable rather than buried in prose. The trade-off is that agent prompts feel terse; some context that would help a first-time human reader is omitted because the agent doesn't need it. This trade-off favors agent runtime efficiency over human readability of the agent definition.
+
+---
+
+## ADR 014: Cato deployment model—per-project copy, not user-level install
+
+**Status**: Accepted
+
+**Context**: Cato's agent definitions and workflow rules need to be available to Claude Code when working on a project. Two deployment models were considered: (1) install Cato into `~/.claude/` (user-level, applies to all projects automatically), or (2) copy Cato's contents into each project that uses it. Option 1 was initially attractive for its automatic propagation, but conflicts with several principles: it pollutes the user-level Claude Code namespace that other agents and tools also need to share; it makes projects non-self-contained (behavior depends on user-level state); it changes project behavior implicitly when Cato is upgraded; and it forces all Claude Code work—including non-Cato tasks—to load Cato workflow rules.
+
+**Decision**: Cato is deployed per-project. Each project that wants to use Cato gets its own copy of `.claude/agents/` and a CLAUDE.md that includes Cato workflow rules. The user-level `~/.claude/` directory is kept free of Cato-specific content to remain available for other agents and tools.
+
+**Consequences**: Projects are self-contained—the project repository includes everything needed for Cato to work. Behavior is explicit and visible in the project's file structure. Cato versions can be pinned per-project (a project keeps the Cato version it was bootstrapped with until explicitly upgraded). Cato upgrades require manual sync to existing projects, but Cato's intentional stability (see ADR 015) keeps this overhead low. The `~/.claude/` namespace remains available for unrelated agents, tools, or future Cato extensions that genuinely need user-level scope.
+
+---
+
+## ADR 015: Cato's body remains stable; project-specific learnings are not absorbed
+
+**Status**: Accepted
+
+**Context**: Each project produces learnings—patterns observed, friction encountered, mistakes recognized. A natural impulse is to absorb these learnings into Cato's body (agents, CLAUDE.md) so future projects benefit. However, project learnings are often domain-specific: a Web API convention does not apply to a CLI tool; a string-processing edge case does not generalize to numerical computation. Absorbing project-specific learnings into Cato's body would pollute the body with rules that are wrong outside their original context, causing bugs in unrelated projects.
+
+**Decision**: Cato's body—agent definitions, workflow rules, Behavioral Rules—contains only genuinely universal engineering principles. Project-specific patterns and conventions are documented at the project level, not absorbed into Cato's body. Cato's body changes are deliberate and rare, justified by ADR.
+
+**Consequences**: Cato's body stays small, pure, and trustworthy across all projects that use it. Absorbing learnings into Cato becomes a deliberate decision (write an ADR, modify body) rather than accidental drift. The trade-off is that project-specific learnings do not automatically propagate—each project decides its own conventions in its own CLAUDE.md. This is by design: cross-project propagation requires conscious user judgment about what is universal vs. context-specific.
+
+---
+
+## ADR 016: Retrospectives belong to projects, not to Cato's body
+
+**Status**: Accepted
+
+**Context**: After each Cato workflow run, a retrospective documents what was learned during the work—friction points, observations about agent behavior, candidate patterns for future consideration. The question is where retrospectives live: inside each project, in a global Cato-owned location, or somewhere else entirely. Storing retrospectives in Cato's body or in a Cato-adjacent global location risks polluting Cato (per ADR 015) and creates ambiguous ownership. Retrospectives are about a specific project's work—their natural owner is the project itself.
+
+**Decision**: Each project's retrospective lives inside the project as `retrospective.md`. The file is git-tracked and pushed alongside the rest of the project's content. Cross-project review of retrospectives is a manual, low-frequency activity—the user navigates project repositories to read retrospectives when reflecting on patterns.
+
+**Consequences**: Retrospectives are naturally scoped to the project that produced them. Git provides version control and persistence. Project repositories stay self-contained—a project's retrospective travels with the project. Cross-project synthesis requires user effort (cd into multiple repos, read retrospectives, identify common patterns), but this is a low-frequency activity and the friction is acceptable. Retrospectives written publicly may demonstrate engineering reflection skills in a portfolio context, an unintended but useful side effect.
+
+---
+
+## ADR 017: Retrospective generation as a skill, not a new agent
+
+**Status**: Accepted
+
+**Context**: Generating a retrospective at the end of a workflow involves collecting metrics (spec length, compliance loop iterations, finding distributions, commit hash) and prompting the user to add subjective reflection. This is a procedural workflow with no independent judgment—it does not warrant the overhead of a new agent. Two implementation options were considered: extend an existing agent (e.g., have the architect produce retrospectives in Mode 3 final report) or use Claude Code's skill mechanism. Extending an agent violates Cato's "narrow role" principle. Skills are the appropriate mechanism for lightweight workflow templates that the main session executes directly.
+
+**Decision**: Retrospective generation will be implemented as a Claude Code skill (`cato-retrospective`) located in the project's `.claude/skills/` directory. The skill instructs the main session to collect metrics from the just-completed workflow, generate a retrospective draft in the project's `retrospective.md`, and prompt the user to fill in subjective reflection sections. The skill produces only retrospectives—it does not generate new skills or new agent rules.
+
+**Consequences**: No new agent is added; existing agents keep their narrow roles. The skill is lightweight and lives in each project's local `.claude/skills/`, consistent with the per-project deployment model (ADR 014). Retrospective output is text in `retrospective.md`, never code or new tools—this prevents skill-generated artifacts from accidentally becoming part of Cato's body (preserving ADR 015).
