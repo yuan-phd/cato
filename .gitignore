@@ -38,3 +38,6 @@ logs/
 # OS-level temp files
 *.tmp
 *.bak
+
+# Workflow test scratch directory (produced code stays out of cato)
+test-run-1/
