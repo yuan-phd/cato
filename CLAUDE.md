@@ -52,13 +52,39 @@ acceptance/rejection of review feedback rest with the human.
 
 ## Workflow Rules
 
+### Inter-Agent Communication Protocol
+
+Per ADR 020, all inter-agent communication uses files under `.cato/state/run-N/`, not main session prompts. The main session's role is mechanical dispatch: it identifies file paths, triggers sub-agents, and references paths in dispatch prompts. The main session must not paste, summarize, or quote spec content, file content, or other agent outputs in sub-agent prompts.
+
+**Run lifecycle**: Each Claude Code session is one run. On startup, the main session checks `.cato/state/` for existing run-N directories and creates the next sequential one (run-1, run-2, ...) for the current session. All workflow handoff files for this session live under that run directory.
+
+**Standard handoff files** (under `.cato/state/run-N/`):
+- `spec.md` — architect Mode 1 output
+- `engineer-completion.md` — engineer's completion report
+- `compliance-check.md` — architect Mode 2 output
+- `coordination-report.md` — architect Mode 3 output
+
+Reviewer findings continue to be archived at `reviews/review-YYYYMMDD-NNN.md` per existing convention.
+
+**Dispatch protocol**: When invoking a sub-agent, the main session's prompt provides only:
+1. Role context (one line: "You are operating in your standard Cato [agent name] role")
+2. Relevant file paths to read
+3. The action requested ("produce a spec", "implement per spec", "review")
+4. Output destination (file path to write to)
+
+The main session does NOT include in the prompt:
+- Spec content (sub-agent reads `spec.md`)
+- File content from the project (sub-agent reads files directly)
+- Prior agent outputs (sub-agent reads relevant `.cato/state/run-N/*.md`)
+- Process information about prior workflow steps (compliance loop history, user dialogue, etc.)
+
 ### Architect Workflow — Mode 1: Design
 
 When the user describes a high-level goal:
 1. Invoke the architect sub-agent to produce a technical specification
 2. Present the specification to the user for review
 3. Wait for user approval, modification, or rejection before proceeding
-4. After user approval, hand the spec to the engineer per the Engineer Workflow.
+4. After user approval, main session dispatches the engineer with the path to `.cato/state/run-N/spec.md` per the Engineer Workflow.
 
 ### Architect Workflow — Mode 2: Compliance Check
 
@@ -67,7 +93,7 @@ Triggered when engineer reports completed implementation:
 1. Architect compares implementation (diff, tests) against the spec
 2. Returns one of three states: PASS / NEEDS REVISION / FAIL
    - NEEDS REVISION: engineer addresses findings, re-reports to architect (loop)
-   - PASS: architect forwards implementation to reviewer
+   - PASS: architect writes verdict to `.cato/state/run-N/compliance-check.md`; main session reads it and dispatches the reviewer with paths to the spec, diff/files under review, and test output
    - FAIL: architect escalates to user—spec may need revision (If user is unavailable, workflow stops and state is preserved per Reviewer Workflow step 10.)
 
 ### Architect Workflow — Mode 3: Coordination
@@ -87,11 +113,11 @@ After architect specification is approved by the user:
 2. Engineer implements code and tests strictly following the spec
 3. Engineer does NOT commit—engineer reports completed implementation to architect for compliance check
 4. Architect compliance-checks: returns PASS, NEEDS REVISION, or FAIL
-   - PASS: forward to reviewer
+   - PASS: main session dispatches reviewer (per Reviewer Workflow)
    - NEEDS REVISION: engineer addresses findings, re-reports to architect (loop)
    - FAIL: report back to user; spec may need revision
 5. Engineer-architect may iterate multiple rounds. There is no fixed workflow-level limit, but the architect may escalate per its anti-deadlock rule (defined in architect.md) when a loop fails to converge.
-6. The engineer never communicates directly with the reviewer. Architect forwards approved implementation to reviewer.
+6. The engineer never communicates directly with the reviewer. After architect Mode 2 PASS, main session dispatches the reviewer with paths to the spec, the diff/files under review, and test output.
 7. Engineer never commits. The architect produces a commit proposal in Mode 3 Final Report; user authorizes; main session executes.
 
 ### Reviewer Workflow
@@ -101,7 +127,7 @@ After architect Mode 2 returns PASS:
 1. Default to claude-reviewer (Claude Opus, isolated context)
 2. Reviewer receives the architect's spec (including Concerns to verify), the git diff, and test results. Reviewer does NOT see the architect-engineer compliance check rounds, engineer's reasoning, or any architect-engineer dialogue.
 
-   When invoking the reviewer, the main session must pass only: the architect's specification (including Concerns to verify), the git diff, and test execution results. The main session must NOT include process information about the architect-engineer compliance loop—this includes the number of NEEDS REVISION rounds, specific compliance check findings, the engineer's reasoning during fixes, or any architect-engineer dialogue. The reviewer's isolation from the compliance loop is enforced by what the main session chooses to send, not by what the reviewer chooses to read.
+   When invoking the reviewer, the main session passes file path references only: the spec at `.cato/state/run-N/spec.md`, the diff (or file paths under review when working in a gitignored directory), and the test output. The reviewer reads these files itself. The main session must NOT paste or paraphrase content in the prompt.
 3. Reviewer applies the Four-Pass framework defined in architect.md (Context, Design, Implementation, Polish)
 4. Reviewer outputs structured findings under the five-tier scheme: Blocking / Important / Nit / Question / Praise
 5. Findings return to the architect, not to the user. The architect performs Mode 3 coordination.
