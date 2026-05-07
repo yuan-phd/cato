@@ -268,3 +268,23 @@ for fewer unauthorized agent actions.
 - No Blocking, no Important, no Questions, no engineer dispatch.
 
 **Consequences**: Confirms the full Cato loop functions end-to-end on a non-trivial target. The run also surfaced a structural issue with how the main session forwards information to sub-agents; that finding is recorded separately in a follow-up ADR rather than embedded here.
+
+---
+
+## ADR 020: Inter-agent communication through files; main session does not paraphrase
+
+**Status**: Accepted
+
+**Context**: The first end-to-end Cato run (ADR 019) revealed a structural problem: the main session, when forwarding information between sub-agents, paraphrased and occasionally hallucinated file content. In one instance the main session misquoted `requirements.txt` content and incorrectly accused the reviewer of hallucinating—the reviewer's quote was accurate. This is not a discipline issue; it is a structural one. The main session is an LLM, and when it summarizes content for the next sub-agent's prompt, it generates rather than copies—which means it can change content. Cato's design implicitly assumed the main session was a trustworthy router; that assumption is wrong.
+
+**Decision**: Inter-agent communication uses files, not main-session prompts. Each agent writes its output to a fixed path under `.cato/state/`; the next agent reads that file directly. The main session's role is reduced to mechanical dispatch—it triggers the next agent and references file paths, but does not paste, summarize, or quote content from prior agents or source files in the dispatch prompt. Specifically:
+
+- `.cato/state/spec.md` — architect Mode 1 output
+- `.cato/state/engineer-completion.md` — engineer's completion report
+- `.cato/state/compliance-check.md` — architect Mode 2 output
+- `reviews/review-YYYYMMDD-NNN.md` — reviewer findings (already in this location per existing convention)
+- `.cato/state/coordination-report.md` — architect Mode 3 output
+
+When dispatching a sub-agent, the main session passes file paths only. The sub-agent uses its `Read` tool to access the content itself.
+
+**Consequences**: Eliminates the main-session-as-untrusted-forwarder failure mode—the main session has no opportunity to paraphrase content that doesn't pass through its prompt. Provides a natural audit trail (`.cato/state/` shows the exact handoff content for each step). Survives Claude Code session restarts: state lives in files, so an architect sub-agent invoked in a later session can pick up where the previous one left off. Trade-off: each sub-agent makes one or two extra `Read` tool calls per invocation. `.cato/state/` requires lifecycle management (cleared at workflow start, or retained as audit history—to be decided when implementing). Implementation deferred to a follow-up commit.
