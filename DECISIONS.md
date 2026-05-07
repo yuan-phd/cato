@@ -252,3 +252,19 @@ for fewer unauthorized agent actions.
 **Decision**: Do not build the `cato-retrospective` skill. Do not modify agents to log decisions. Reflection happens organically—when something during a workflow genuinely prompts the user to stop and think, they write that thought somewhere of their choosing (project markdown, personal notes, anywhere). When a thought rises to the level of a universal pattern worth changing Cato's body, it goes through the standard ADR process directly, without an intermediate retrospective.
 
 **Consequences**: No automated retrospective infrastructure. No agent changes for decision logging. Reflection is need-driven, not schedule-driven, which keeps reflection authentic when it happens. The trade-off is that subtle observations may be lost if the user does not pause to write them down—this is an accepted cost. The ADR pipeline (genuinely universal pattern → ADR → Cato body change) remains the only path for reflection to affect Cato itself.
+
+---
+
+## ADR 019: First end-to-end Cato run — reverse(s) workflow-validation
+
+**Status**: Accepted
+
+**Context**: With all three agents (architect, engineer, reviewer) implemented, Cato needed a real workflow run to validate that the full loop (architect Mode 1 → engineer → architect Mode 2 → reviewer → architect Mode 3) operates as the constitution describes. The chosen target was a Python `reverse(s)` function with grapheme-cluster-aware Unicode handling, implemented under a gitignored `test-run-1/` directory.
+
+**Decision**: Run the full workflow on `reverse(s)`. Commit only the review archive (`reviews/review-20260507-001.md`) and this ADR; leave the implementation files in `test-run-1/` (gitignored). Triage decisions:
+
+- Reviewer Nits 1 and 2 (raw NFD/ZWJ literals vs. escape form): out-of-scope (note for future). Spec language was advisory; case 20 is a runtime canary against NFC contamination; file is byte-correct.
+- Reviewer Nit 3 (requirements.txt comment style): disagreed-with-reviewer. Existing comment is grammatical and clear; suggested form is no clearer.
+- No Blocking, no Important, no Questions, no engineer dispatch.
+
+**Consequences**: Confirms the full Cato loop functions end-to-end on a non-trivial target. The run also surfaced a structural issue with how the main session forwards information to sub-agents; that finding is recorded separately in a follow-up ADR rather than embedded here.
