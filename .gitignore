@@ -41,3 +41,6 @@ logs/
 
 # Workflow test scratch directory (produced code stays out of cato)
 test-run-1/
+
+# Cato runtime state (per-workflow inter-agent handoff files; see ADR 020)
+.cato/
