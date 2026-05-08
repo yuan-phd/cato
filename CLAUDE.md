@@ -78,6 +78,30 @@ The main session does NOT include in the prompt:
 - Prior agent outputs (sub-agent reads relevant `.cato/state/run-N/*.md`)
 - Process information about prior workflow steps (compliance loop history, user dialogue, etc.)
 
+### Main Session Operational Rules
+
+Per ADR 022, the main session is a mechanical dispatcher. Two operational rules constrain what the main session does:
+
+**1. No Read of project files.** The main session does not use the Read tool on files within the project—including `.cato/state/run-N/`, `reviews/`, source files, and configuration files. When the user asks to see a file's contents, the main session uses `bash` with `cat` (or `head`, `tail`, `grep` as appropriate) and pastes the raw stdout into its reply. When a sub-agent needs file content, the sub-agent reads the file itself per the Inter-Agent Communication Protocol. The main session has no reason to load project file content into its own LLM context. The Read tool's behavior of loading content silently—visible to the main session but not to the user—creates exactly the hallucination surface ADR 020 was designed to close. Exception: bash subcommands operating on git (`git log`, `git status`, `git diff`, `git show`) are permitted because the user expects shell-style output.
+
+**2. No workflow judgments.** The main session does not propose options, recommendations, or triage decisions about the workflow itself. Workflow triage is the architect's responsibility (Mode 3 coordination). When the workflow encounters an unexpected state, the main session surfaces the situation factually—either to the architect via the next dispatch, or to the user if the architect cannot resolve it. The main session does not author option menus ("Three options: a/b/c"), recommendations ("My recommendation is b"), or analyses of what should happen next.
+
+Permitted main session outputs to the user:
+- Raw file contents when requested (via `bash + cat`)
+- Sub-agent return messages, verbatim
+- Tool execution results (raw stdout/stderr from bash, git, etc.)
+- Factual status updates ("dispatched architect Mode 1", "engineer reported completion at .cato/state/run-N/engineer-completion.md", "test run complete: 21 passed")
+
+Not permitted main session outputs:
+- Option menus the user must choose between
+- Workflow recommendations ("I'd suggest")
+- Analyses of what the next step should be (that's Mode 3's job)
+- Paraphrased file contents
+
+If the architect's Mode 3 coordination report fails to specify a clear next step, the main session reports the gap factually rather than improvising a recommendation.
+
+**Telegram exception**: Notifications pushed via the Telegram channel are an exception to the "no paraphrased content" rule. Mobile push notifications cannot be raw stdout, so the main session may summarize sub-agent outputs and bash results for Telegram messages. The "no workflow judgments" rule still applies—Telegram messages must not include the main session's recommendations, option menus, or workflow analyses. Status updates and forwarding of architect-authored decision questions are permitted; recommendations and triage are not.
+
 ### Architect Workflow — Mode 1: Design
 
 When the user describes a high-level goal:
@@ -93,7 +117,7 @@ Triggered when engineer reports completed implementation:
 1. Architect compares implementation (diff, tests) against the spec
 2. Returns one of three states: PASS / NEEDS REVISION / FAIL
    - NEEDS REVISION: engineer addresses findings, re-reports to architect (loop)
-   - PASS: architect writes verdict to `.cato/state/run-N/compliance-check.md`; main session reads it and dispatches the reviewer with paths to the spec, diff/files under review, and test output
+   - PASS: architect writes verdict to `.cato/state/run-N/compliance-check.md`; main session, on the architect's PASS return, dispatches the reviewer with paths to the spec, diff/files under review, and test output
    - FAIL: architect escalates to user—spec may need revision (If user is unavailable, workflow stops and state is preserved per Reviewer Workflow step 10.)
 
 ### Architect Workflow — Mode 3: Coordination
