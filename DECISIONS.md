@@ -288,3 +288,15 @@ for fewer unauthorized agent actions.
 When dispatching a sub-agent, the main session passes file paths only. The sub-agent uses its `Read` tool to access the content itself.
 
 **Consequences**: Eliminates the main-session-as-untrusted-forwarder failure mode—the main session has no opportunity to paraphrase content that doesn't pass through its prompt. Provides a natural audit trail (`.cato/state/` shows the exact handoff content for each step). Survives Claude Code session restarts: state lives in files, so an architect sub-agent invoked in a later session can pick up where the previous one left off. Trade-off: each sub-agent makes one or two extra `Read` tool calls per invocation. `.cato/state/` requires lifecycle management (cleared at workflow start, or retained as audit history—to be decided when implementing). Implementation deferred to a follow-up commit.
+
+---
+
+## ADR 021: Architect gets Write access, scoped to .cato/state/run-N/
+
+**Status**: Accepted
+
+**Context**: ADR 020 introduced file-based inter-agent communication: each agent writes its output to a fixed path under `.cato/state/run-N/`. However, architect.md explicitly denies the architect Write, Edit, and Bash tools. The original rationale was to prevent the architect from drifting into implementation. The two requirements conflict: ADR 020 requires the architect to write its own outputs (spec.md, compliance-check.md, coordination-report.md), but the tool denial prevents it from doing so. The first run-2 attempt exposed this directly—the architect produced a spec correctly but had no way to persist it, forcing the main session to write the file on the architect's behalf. That workaround reintroduces the main-session-as-middleman failure mode that ADR 020 was designed to eliminate.
+
+**Decision**: The architect is granted the Write tool, with the understanding that its writes are restricted to `.cato/state/run-N/` paths. The architect uses Write for its own structured outputs (spec.md, compliance-check.md, coordination-report.md) and nothing else. The architect still has no Edit or Bash tools—it cannot modify code or execute it. The "architect does not implement" principle is preserved: the rule was always about not writing code, not about being unable to persist its own deliverables.
+
+**Consequences**: Resolves the contradiction between ADR 020 and architect.md. The architect can fulfill the file-based protocol without main-session intervention. The "no implementation drift" guarantee remains intact through the absence of Edit and Bash, and through the implicit scope restriction on Write (architect.md will document this restriction). Path enforcement is by convention in the agent definition, not by tool-level restriction—Claude Code does not natively support per-tool path scoping, so the constraint is documented and trusted at the agent level. If the architect ever writes outside `.cato/state/run-N/`, that is a violation to be caught and fixed; not a structural prevention.
