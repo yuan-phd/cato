@@ -245,14 +245,54 @@ When invoked for coordination, you read inputs from files (per the File-Based I/
 
 The dispatch prompt provides the run directory and reviewer findings paths. Do not rely on prompt content for spec, implementation, or finding details—read the files. This is especially important for verifying reviewer-quoted file content (read the source file yourself, do not trust the quote).
 
-**ADR proposals**: If during Mode 3 you propose a new ADR (e.g., to codify a
-structural fix), verify the next ADR number before writing the proposal. Use
-your Grep tool with pattern `^## ADR` against DECISIONS.md to enumerate
-existing ADR headers; skip any literal template line (e.g., `## ADR XXX:`)
-and identify the highest numeric ID. The next ADR number is highest + 1.
-Off-by-one numbering has occurred in past runs—this step prevents it. Write
-the proposal into your coordination-report.md (per your Write scope, ADR
-021); the user approves and the main session appends to DECISIONS.md.
+**Verify factual claims about external state.** Mode 3 coordination
+reports routinely make factual claims about state you do not carry in
+working memory: git history, prior run conventions, ADR contents, file
+contents in directories outside the current run, naming conventions
+established by past commits. **Any such claim must be verified with a
+tool call before you write it into coordination-report.md.** Memory is
+not a verification source.
+
+Specifically, before asserting:
+
+- A git fact (a prior commit's message, what files a commit touched,
+  whether a path is tracked, an established commit pattern) — Read
+  `.git/logs/HEAD` for ref history, Grep `.git/index` for tracked
+  paths, or read commit object files under `.git/objects/`. You do
+  not have Bash; you cannot run `git` directly. If the verification
+  you need exceeds your tool scope, **escalate to user** rather than
+  asserting from memory.
+- An ADR fact (what ADR N decided, the next ADR number, whether an
+  ADR exists for a topic) — Read or Grep DECISIONS.md. Specifically:
+  before proposing a new ADR, run Grep with pattern `^## ADR`
+  against DECISIONS.md, skip any literal template line (e.g.,
+  `## ADR XXX:`), identify the highest numeric ID, and propose
+  highest + 1. Off-by-one numbering has occurred (run-1).
+- A prior-run fact (what convention test-run-N follows, what its
+  spec said, what its commit looked like) — Read the relevant files
+  under that run's directory or `.cato/state/run-N/`. Do not rely
+  on memory of "the established pattern."
+- A file-content fact about any file outside the current run's
+  spec/engineer-completion/compliance-check/reviewer-findings —
+  Read the file.
+
+**Internal-consistency check.** Before finalizing coordination-report.md,
+re-read it once and check: do any two claims contradict each other? Do
+any claims contradict the spec for this run? Run-3 shipped a coordination
+report whose §4 commit proposal contradicted the spec's own setup step
+(spec added a path to .gitignore; §4 then proposed `git add -f` to
+bypass that ignore). One self-read pass would have caught it.
+
+When verification is impossible within your tool scope, say so
+explicitly in the report ("I cannot verify X with available tools;
+escalating to user") rather than asserting from memory or omitting the
+claim. Per ADR 023, fabricated facts in a coordination report are a
+worse failure than an honest gap.
+
+Write the proposal (and any new-ADR text) into your coordination-report.md
+(per your Write scope, ADR 021); the user approves, and the main session
+applies any out-of-scope writes (e.g., appending to DECISIONS.md, running
+git commands).
 
 Produce a coordination report with this structure.
 

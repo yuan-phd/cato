@@ -318,3 +318,93 @@ Both behaviors share a root cause: the main session implicitly treats itself as 
 2. **No workflow judgments**. The main session does not propose options, recommendations, or triage decisions about the workflow itself. Workflow triage is the architect's responsibility (Mode 3). When the workflow encounters an unexpected state, the main session surfaces the situation factually to the architect (or to the user if the architect cannot be reached), but does not author its own option lists or recommendations. The main session's outputs to the user are: (a) raw file contents when requested, (b) sub-agent return messages verbatim, (c) tool execution results, and (d) factual status updates ("dispatched architect", "engineer reported completion"). Not: option menus, "my recommendation is", or analysis of what should happen next.
 
 **Consequences**: Closes the file-content side channel that bypassed ADR 020. Restores Mode 3 as the sole authority for workflow triage. The main session becomes simpler: dispatch the next sub-agent per the prior agent's stated next step, surface raw outputs, and wait. If the architect's coordination report fails to specify a next step, the main session reports the gap factually rather than improvising. The trade-off is reduced helpfulness in edge cases where the main session might have offered a useful suggestion—accepted as the cost of structural integrity. Implementation: update CLAUDE.md to document both rules under Workflow Rules. Sub-agent definitions are unaffected.
+
+---
+
+## ADR 023: Mode 3 Must Verify Factual Claims About External State
+
+**Date**: 2026-05-10
+**Status**: Accepted
+
+### Context
+
+Run-3 (slugify) surfaced a Mode 3 failure mode that on inspection
+turned out to be a recurrence of a run-1 failure, not a new one:
+
+- Run-1: architect proposed ADR 018 in coordination-report.md when ADR
+  018 already existed. Cause: it asserted the next number from memory
+  instead of grepping DECISIONS.md. Patched narrowly by adding a "grep
+  before proposing an ADR" rule to architect.md (the original Rule A).
+
+- Run-3: architect's coordination-report.md §4 claimed test-run-1/ and
+  test-run-2/ contents had been "committed via git add -f" as an
+  established precedent, and proposed the same for test-run-3/. The
+  claim was fabricated — those directories are gitignored and their
+  contents have never been committed. The proposal also internally
+  contradicted the spec's own setup step (which added test-run-3/ to
+  .gitignore).
+
+Both failures share one shape: architect made a factual claim about
+state outside its current working memory (DECISIONS.md contents in
+run-1; git history and prior-run conventions in run-3) by recall, when
+verification with an available tool was cheap. The narrow run-1 patch
+covered ADR numbers and nothing else, so the same failure shape
+recurred in run-3 against a different external surface.
+
+### Decision
+
+Generalize the run-1 patch. In Mode 3, any factual claim in
+coordination-report.md that references state outside the architect's
+immediate run context must be verified with a tool call before being
+written. The original ADR-number rule becomes a specific instance of
+this general rule.
+
+In-scope external surfaces and their verification routes (architect
+has Read, Grep, Glob, WebSearch, WebFetch, Write — no Bash):
+
+- **Git history / index** — Read `.git/logs/HEAD`, Grep `.git/index`,
+  or read commit objects under `.git/objects/`. Architect cannot run
+  `git` commands directly; if the needed verification exceeds tool
+  scope, escalate to user.
+- **DECISIONS.md / ADR contents** — Read or Grep DECISIONS.md.
+  Includes the next-ADR-number procedure (grep `^## ADR`, skip
+  template line, take highest + 1).
+- **Prior-run conventions** — Read the relevant files under that
+  run's directory or `.cato/state/run-N/`.
+- **File contents outside the current run** — Read the file.
+
+Mode 3 must also do an internal-consistency self-read of
+coordination-report.md before finalizing: do any two claims contradict
+each other, or contradict this run's spec? Run-3's `git add -f` proposal
+contradicted the spec's own gitignore setup step; one self-read pass
+would have caught it.
+
+When verification is impossible within architect's tool scope, the
+honest move is to state the gap explicitly ("I cannot verify X with
+available tools; escalating to user") and escalate. Fabricated facts
+in a coordination report are a worse failure than an honest gap,
+because user approval downstream depends on the report being trustworthy.
+
+### Consequences
+
+- architect.md Mode 3 setup section replaces the narrow ADR-number
+  rule with the general external-state verification rule. The
+  ADR-number procedure is preserved as a specific instance.
+- Coordination reports become slightly longer when verification gaps
+  must be acknowledged. This is acceptable: an explicit gap is
+  cheaper than a fabricated claim discovered downstream.
+- Behavioral Rule 2 in CLAUDE.md ("Verify facts against source of
+  truth") remains the abstract principle; this ADR is its concrete
+  Mode 3 specialization, in the same spirit as ADR 022 specializing
+  it for the main session.
+- The run-1 narrow rule is not removed; it is generalized. No prior
+  ADR is superseded.
+
+### Notes
+
+The pattern — a narrow rule patched for one failure surface, the same
+failure shape reappearing on a different surface — is itself worth
+remembering. Future patches that target one specific symptom should
+ask whether the underlying shape is wider; a one-paragraph
+generalization at first patch time is cheaper than a second-occurrence
+post-mortem.
