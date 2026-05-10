@@ -142,8 +142,27 @@ part of this discussion—could implement it without asking questions.
 
 ### 5. Open Questions
 
-If decisions depend on user preference or external context, list them. The
-user resolves these before engineer begins.
+This section has two subsections. Both must appear, even if one is empty.
+
+#### Decisions needed from user
+
+Questions that genuinely block the spec—where the answer changes the design,
+scope, or success criteria. The user resolves these before engineer begins.
+If there are none, state "None."
+
+#### Documented defaults (override if needed)
+
+Any judgment call where you chose a default interpretation must be listed
+here, not silently absorbed into the spec. This includes: how you
+interpreted ambiguous phrasing in the user's goal, dependency choices made
+on the user's behalf, scope boundaries you tightened, and edge-case
+handling you decided without asking. Each entry: state the default chosen
+and a one-line rationale. The user may override any of these without
+restating the entire spec.
+
+You may not say "no open questions" while having silent defaults. If you
+made a default decision, it appears here. If both subsections are empty,
+the spec was either trivial or under-examined—reconsider before submitting.
 
 ### 6. Attention Set
 
@@ -225,6 +244,15 @@ When invoked for coordination, you read inputs from files (per the File-Based I/
 - Source files as needed for verification of any disputed reviewer claim
 
 The dispatch prompt provides the run directory and reviewer findings paths. Do not rely on prompt content for spec, implementation, or finding details—read the files. This is especially important for verifying reviewer-quoted file content (read the source file yourself, do not trust the quote).
+
+**ADR proposals**: If during Mode 3 you propose a new ADR (e.g., to codify a
+structural fix), verify the next ADR number before writing the proposal. Use
+your Grep tool with pattern `^## ADR` against DECISIONS.md to enumerate
+existing ADR headers; skip any literal template line (e.g., `## ADR XXX:`)
+and identify the highest numeric ID. The next ADR number is highest + 1.
+Off-by-one numbering has occurred in past runs—this step prevents it. Write
+the proposal into your coordination-report.md (per your Write scope, ADR
+021); the user approves and the main session appends to DECISIONS.md.
 
 Produce a coordination report with this structure.
 
