@@ -3,6 +3,20 @@
 This file is read automatically by Claude Code at session start. It defines the
 rules and architecture of the Cato workflow. All sub-agents inherit this context.
 
+## Project Context
+
+(This section is project-specific. In a fresh Cato deployment, fill it
+with: project name, one-paragraph description of what the project does,
+primary language and stack, lint / test / build / run commands the
+agents may use, and any project-specific conventions (naming, layout,
+forbidden patterns) the architect and engineer should respect when
+writing specs and code.
+
+In the cato repository itself this section is intentionally minimal —
+cato's body *is* the workflow definition; there is no separate project
+description to record here. Deployments to other projects must replace
+this block.)
+
 ## Architecture
 
 Three core agent roles coordinated through a Claude Code main session:
