@@ -615,3 +615,121 @@ glob scheme:
 - The architect needs to Read the existing compliance-check.md before
   Writing the new round, then Write the concatenation. This is one
   extra Read per multi-round dispatch; negligible cost.
+
+---
+
+## ADR 026: Reviewer Is Physically Isolated; Main Session Archives Reviewer Output
+
+**Date**: 2026-05-12
+**Status**: Accepted
+
+### Context
+
+Run-5 surfaced an internal inconsistency in `claude-reviewer.md` that
+had been latent since the agent was first defined:
+
+- Frontmatter `tools:` lists `Read, Grep, Glob, Bash, WebSearch,
+  WebFetch` — no `Write` and no `Edit`.
+- "Hard Boundaries" section explicitly states the reviewer does NOT
+  have Write or Edit tools.
+- "File-Based I/O Protocol" section instructs the reviewer to write
+  findings to `reviews/review-YYYYMMDD-NNN.md`.
+
+These three statements cannot all be true. Runs 1–4 papered over the
+inconsistency: the reviewer used `cat << EOF > file` via its Bash tool
+as an implicit Write workaround, and findings happened to land on disk.
+Run-5's reviewer was more literal about its declared tool scope,
+refused to use Bash as a backdoor Write, and surfaced the gap honestly
+in its final message. The main session then re-dispatched the reviewer
+with explicit Bash-heredoc instructions to land the file for run-5.
+
+The Bash-heredoc workaround works, but it is exactly the kind of
+"unscoped workaround" that ADR 023 and ADR 024 are designed to
+eliminate. It also tells the wrong story about reviewer's role.
+
+The reviewer's design intent is stronger isolation than just "do not
+see compliance-check transcripts." The reviewer simulates the
+real-world setup where a senior PR reviewer reads code and the spec,
+gives written feedback, and never touches the project filesystem
+themselves. Anything the reviewer "writes" is text returned to a
+person (the architect, via the main session); the archival of that
+text into the project's `reviews/` directory is a separate act done
+by someone with write access.
+
+### Decision
+
+The reviewer is **physically isolated from the project filesystem with
+respect to writes and command execution**. Its tool inventory is
+`Read, Grep, Glob, WebSearch, WebFetch` — no `Write`, no `Edit`, no
+`Bash`. The reviewer cannot create, modify, or execute anything.
+
+The reviewer's output is its final message, returned verbatim. The
+main session takes that verbatim final-message content and writes it
+to `reviews/review-YYYYMMDD-NNN.md`. This is the canonical archival
+path; architect Mode 3 reads from that archived file.
+
+This archival write is a **sanctioned exception** to ADR 022's
+prohibition on the main session writing project files. The exception
+is narrow:
+
+- The write target is restricted to `reviews/review-YYYYMMDD-NNN.md`
+  (exact directory, exact filename pattern).
+- The write content is the reviewer's final-message return, verbatim.
+  The main session does not summarize, edit, reformat, or extract
+  from it.
+- No other path under the project (including `.cato/state/`, source
+  files, configuration files, or other paths under `reviews/`) is
+  covered by this exception.
+
+The exception is justified because verbatim I/O of an upstream agent's
+output to a fixed archival path is not workflow judgment and not
+paraphrase, which are what ADR 022 was protecting against. The main
+session here is acting as the reviewer's hands, not as a decision
+maker.
+
+### Consequences
+
+- `claude-reviewer.md` frontmatter is updated to remove `Bash`; the
+  agent now has read-only project access (Read, Grep, Glob) plus
+  read-only web access (WebSearch, WebFetch). No execution tool, no
+  file-write tool. The implicit Bash-heredoc Write workaround used
+  in runs 1–4 is closed off intentionally.
+- `claude-reviewer.md` "File-Based I/O Protocol" section is updated
+  to specify that output is only the final-message return, with an
+  explicit prohibition on attempting workarounds (e.g., asking another
+  agent to write the file on the reviewer's behalf).
+- `CLAUDE.md` "Reviewer Workflow" section is updated to specify the
+  main session's archival responsibility and to cite this ADR as the
+  ADR 022 exception.
+- Future runs: when the reviewer subagent returns, the main session
+  must write the verbatim return to `reviews/review-YYYYMMDD-NNN.md`
+  before dispatching architect Mode 3. The next-NNN computation
+  follows the existing convention (highest existing NNN for that
+  date + 1, or 001 if none).
+- Audit trail is preserved end-to-end: reviewer's output is on disk
+  in `reviews/`, identical to what the reviewer returned. Architect
+  Mode 3 reads the archived file; the file is what gets committed
+  per the run-N commit pattern.
+- ADR 020 is not superseded. The reviewer still reads files for input
+  (spec, source, test output); only its write step changes from
+  "reviewer writes the file" to "reviewer returns text, main session
+  writes the file."
+- ADR 022 is amended in spirit, not in text: the main session may
+  write `reviews/review-*.md` as a mechanical archival action on
+  reviewer output. The CLAUDE.md edit captures this; this ADR is the
+  authoritative source.
+- ADR 021's "architect Write scoped to .cato/state/run-N/" is
+  untouched. The reviewer archival exception is the main session's,
+  not the architect's.
+- Existing review files (runs 1–5) remain in `reviews/`; the change
+  applies to runs 6 onward.
+
+### Notes
+
+The Bash-heredoc workaround discovered in run-5 retrospect was the
+kind of failure mode that survived four runs because it produced the
+right artifact for the wrong reason. The lesson: agent definitions
+that are internally inconsistent will silently route around the
+inconsistency via whatever tool happens to be available, and the
+visible output looks correct. The fix is to remove the route, not to
+formalize it.

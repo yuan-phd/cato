@@ -148,8 +148,11 @@ references only: spec at `.cato/state/run-N/spec.md`, diff/files under
 review, and test output. Main session must NOT paste or paraphrase content.
 
 Reviewer applies Four-Pass framework (Context / Design / Implementation /
-Polish), outputs five-tier findings to `reviews/review-YYYYMMDD-NNN.md`.
-Findings return to architect Mode 3, not to user.
+Polish) and returns five-tier findings verbatim in its final message —
+reviewer has no write tools. Per ADR 026, main session archives that
+verbatim text to `reviews/review-YYYYMMDD-NNN.md` as a sanctioned ADR-022
+exception: mechanical I/O only, restricted to that exact path pattern, no
+paraphrase. Findings then return to architect Mode 3, not to user.
 
 **Reviewer selection**: Default: claude-reviewer (Opus). Backup: gpt-reviewer
 (Codex Plugin CC, GPT-5) — used when user requests it, claude-reviewer fails,
