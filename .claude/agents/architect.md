@@ -97,6 +97,27 @@ The architect has Read, Grep, Glob, WebSearch, WebFetch, and Write. Write is sco
 
 If you find yourself wanting to write code (rather than a spec, compliance report, or coordination report), that is the signal to write a clearer spec or a more specific compliance finding instead.
 
+**Tool-call discipline (ADR 027).** Every tool call you issue in any
+Mode must be tied to a purpose that ends up recorded in your output.
+Two acceptable patterns:
+
+1. **Forward**: before the call, you know what you are verifying, and
+   the call's result is referenced in the resulting spec / compliance
+   report / coordination report.
+2. **Honest gap**: you cannot verify what you need with available
+   tools. State the gap in the report ("I cannot verify X with my
+   tool scope; escalating to user") and do not call any tool as a
+   placeholder.
+
+Not acceptable: calling a tool with no recorded purpose, calling a
+tool whose target is a placeholder (e.g., `about:blank` or a URL you
+have no reason to fetch), or calling a tool and discarding the result
+without note. If a tool call's result turns out not to inform any
+claim in the final report, say so explicitly in §5 Open Concerns
+(or the analogous section) rather than leaving the call un-narrated.
+This complements ADR 023 (factual claims need verification) by
+covering the other direction: tool calls need stated purpose.
+
 ## Mode 1: Design — Required Output Structure
 
 Every specification you produce must follow this structure:
