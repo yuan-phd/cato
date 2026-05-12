@@ -408,3 +408,210 @@ remembering. Future patches that target one specific symptom should
 ask whether the underlying shape is wider; a one-paragraph
 generalization at first patch time is cheaper than a second-occurrence
 post-mortem.
+
+---
+
+## ADR 024: Mode 2 Must Escalate Spec Inconsistency, Not Silently Correct It
+
+**Date**: 2026-05-12
+**Status**: Accepted
+
+### Context
+
+Run-4 (`is_palindrome`) surfaced a Mode 2 failure mode that, on
+inspection, is part of a recurring pattern across runs:
+
+- Run-1: architect proposed an ADR number from memory (ADR 018 when
+  ADR 018 already existed) instead of grepping DECISIONS.md.
+  Patched narrowly; later generalized in ADR 023.
+- Run-3: architect's coordination-report.md §4 claimed an established
+  `git add -f` precedent that did not exist. Fabricated factual claim
+  about external state. Addressed by ADR 023.
+- Run-4: architect, during Mode 2 round-1 compliance check, discovered
+  the spec's §4 "Palindrome rules" table and case-29 expected output
+  were internally inconsistent with the spec's §4 algorithm. The
+  architect silently corrected the spec (overwriting the user-approved
+  expected output from `False` to `True`) and issued a `NEEDS REVISION`
+  to the engineer based on the corrected expectation, without
+  consulting the user. The reviewer caught this in run-4's review and
+  flagged it as a Question for Mode 3 triage.
+
+The three failures share one shape: the architect made a decision it
+should have escalated. ADR 023 covered the factual-claim side of this
+shape (claims about external state must be verified, not recalled).
+This ADR covers the workflow-decision side: when Mode 2 discovers that
+the spec itself is wrong (not just that the implementation diverges
+from it), the spec is the user's approved artifact, and changing it
+is the user's call, not the architect's.
+
+The silent-correction failure is structurally worse than a fabricated
+fact because (a) it changes the contract the user approved, (b) it
+hides the change inside a `NEEDS REVISION` directive against the
+engineer, who has no signal that the spec itself was the source of
+the gap, and (c) downstream artifacts (test comments, commit messages,
+reviewer's read of the spec) inherit a corrected expected behavior
+the user never agreed to. In run-4 the divergence was caught because
+the reviewer is isolated from the compliance-check transcript and can
+re-derive the spec's algorithm independently; without that
+independence, the silent correction would have shipped without notice.
+
+### Decision
+
+In Mode 2, when the architect discovers that the spec is internally
+inconsistent, factually incorrect, or in conflict with itself (as
+distinct from finding that the implementation diverges from the
+spec), the architect must escalate to the user before any spec edit.
+The architect must not unilaterally rewrite spec content the user
+approved, and must not issue a `NEEDS REVISION` to the engineer based
+on a spec interpretation the user has not seen.
+
+Concretely, when Mode 2 finds a spec inconsistency:
+
+1. Stop the compliance-check loop on the affected item.
+2. Write a Mode 2 verdict of `FAIL` (not `NEEDS REVISION`) with the
+   inconsistency clearly described: which spec sections conflict, the
+   two possible interpretations, and what the architect would
+   recommend. `FAIL` is the appropriate status because the spec — not
+   the implementation — is the artifact that needs revision.
+3. The main session surfaces the `FAIL` to the user. The user
+   resolves the inconsistency by approving an amended spec, a
+   documented exception, or a different direction.
+4. Only after the user's resolution does Mode 2 reopen and continue
+   the compliance check against the resolved spec.
+
+When Mode 2 finds a smaller-scale issue — e.g., a typo in a spec
+example that doesn't change behavior — the architect may flag the
+typo to the user without halting the run, but still must not silently
+correct it. The user owns the spec.
+
+This ADR is the workflow-decision counterpart to ADR 023's
+factual-claim rule. Together they cover the broader pattern: the
+architect must surface gaps, not absorb them.
+
+### Consequences
+
+- architect.md Mode 2 section will document the "spec is wrong →
+  FAIL, not NEEDS REVISION" rule explicitly, with the four-step
+  procedure above. The Mode 2 output structure already includes a
+  FAIL state; no new state is added.
+- Mode 2 compliance reports may occasionally produce FAIL verdicts on
+  spec-level issues. This is intended: a FAIL on the spec is cheaper
+  than a silent rewrite discovered downstream.
+- The user takes slightly more interruption during a workflow run
+  when spec inconsistencies surface mid-implementation. This is
+  acceptable; the user's approval is the gate, not the architect's
+  judgment.
+- ADR 023 remains the rule for factual claims about external state;
+  ADR 024 is the parallel rule for workflow decisions touching the
+  user-approved spec. Neither supersedes the other.
+- Behavioral Rule 3 in CLAUDE.md ("Respect task scope") indirectly
+  reinforced this: editing a user-approved spec without permission
+  is out of the architect's task scope. ADR 024 makes that
+  implication explicit for the Mode 2 surface.
+
+---
+
+## ADR 025: Multi-round Mode 2 Compliance Checks Preserve Prior Rounds
+
+**Date**: 2026-05-12
+**Status**: Accepted
+
+### Context
+
+Run-4 also surfaced a file-management gap in multi-round Mode 2
+compliance checks. The architect writes its Mode 2 output to
+`.cato/state/run-N/compliance-check.md` (per ADR 020 / ADR 021). When
+a second Mode 2 round is invoked (typically after the engineer
+addresses NEEDS REVISION findings), the architect overwrote the file
+in place. Run-4's round-1 compliance-check.md was therefore lost when
+round-2 ran; only the round-2 file existed on disk by the time the
+reviewer and Mode 3 ran.
+
+This caused a downstream pointer-rot problem: the engineer's round-1
+fix wrote an inline comment in `test_is_palindrome.py` citing
+`.cato/state/run-4/compliance-check.md §2.spec-bug` as the rationale
+for case 29's expected-output change. After round-2 overwrote
+compliance-check.md, that section no longer existed — the inline
+comment's reference dangled. The reviewer caught the comment's
+process-internal framing as a Nit; Mode 3 also discovered the deeper
+issue that the cited section had ceased to exist.
+
+The audit-trail loss is also a problem on its own terms: when Mode 3
+triages a multi-round run, the rationale for prior NEEDS REVISION
+findings, the engineer's responses across rounds, and the architect's
+verifications are all part of the run's history. ADR 020's design
+intent was that `.cato/state/run-N/` provides a "natural audit trail
+… shows the exact handoff content for each step". An overwrite
+destroys that trail for multi-round Mode 2 checks.
+
+Run-4 round-3 mitigated this informally by appending the round-3
+verdict to compliance-check.md below the round-2 verdict (with a
+horizontal-rule separator and a header indicating which round each
+section belongs to). That worked for round 3, but it relied on the
+architect's choice in the moment, not a documented protocol.
+
+### Decision
+
+Multi-round Mode 2 compliance checks must preserve prior rounds. The
+rule is a single canonical path with appended round sections:
+
+A single `.cato/state/run-N/compliance-check.md` accumulates round
+sections. Each new round is appended below the prior round with a
+separator (`---`) and a header line of the form `# Compliance Check
+— run-N (...) — Round K`, where K is the round number (1-indexed).
+The latest verdict is always the bottom-most section. The architect
+must not overwrite the file in place when a prior round's content
+exists; it must read the existing file and append.
+
+The canonical-path-with-append rule applies symmetrically to targeted
+Mode 2 re-checks following Mode 3 engineer dispatches. Run-4 round 3
+(the Nit-1 fix re-check) is itself a targeted re-check and was
+appended below round 2 in exactly this shape; that pattern is now
+the documented rule.
+
+Rationale for choosing append-with-headers over a separate-files /
+glob scheme:
+
+1. Simpler for main session dispatch. ADR 020 specifies that
+   sub-agent prompts reference file paths, and the standard path
+   `.cato/state/run-N/compliance-check.md` is stable across rounds.
+   A separate-files-plus-glob alternative would require the main
+   session to compute "the latest round's file" before each
+   dispatch, contradicting ADR 022's mechanical-dispatcher principle.
+2. Latest verdict is always bottom-most. Mode 3 and the reviewer
+   read the file top-to-bottom and reach the operative verdict last,
+   matching how a log file is read.
+3. Run-4 round 3 already validated the pattern. Append-with-headers
+   worked in practice; no separate scheme needs to be introduced and
+   re-validated.
+4. Closes the silent-decision surface. Leaving two options open
+   (per-round files vs. append) would re-open the kind of unscoped
+   judgment call that ADR 023 and ADR 024 are designed to eliminate.
+   One rule, applied uniformly.
+
+### Consequences
+
+- architect.md Mode 2 section will document the
+  canonical-path-with-append rule, including the round-header format
+  and the prohibition on overwriting prior rounds. The protocol
+  replaces the implicit "overwrite the file" behavior, which is now
+  disallowed for multi-round runs.
+- ADR 020's audit-trail intent is honored end-to-end: every round's
+  verdict is preserved at the path Mode 3 and the user can read.
+- File size grows for runs with many rounds. Acceptable: the
+  alternative (history loss) is structurally worse. If a single run
+  reaches an unusually high round count, that is itself a signal —
+  likely the anti-deadlock rule should fire, escalating to the user,
+  rather than the file growing unboundedly.
+- Inline references in code (or in other state files) that cite a
+  specific round's compliance-check content should cite the round
+  explicitly (e.g., `compliance-check.md round 1 §2`). Run-4's
+  case-29 comment violated this and was rewritten as part of the
+  Nit-1 dispatch.
+- ADR 021's "architect Write scoped to .cato/state/run-N/" rule is
+  unchanged. The append behavior fits inside that scope.
+- ADR 020 is not superseded; ADR 025 specifies how that ADR's "fixed
+  path under .cato/state/" rule is honored across multiple rounds.
+- The architect needs to Read the existing compliance-check.md before
+  Writing the new round, then Write the concatenation. This is one
+  extra Read per multi-round dispatch; negligible cost.
