@@ -179,6 +179,34 @@ When invoked for compliance check, you read inputs from files (per the File-Base
 
 The dispatch prompt provides the run directory path. Do not rely on prompt content for spec or implementation details—read the files.
 
+**Multi-round append (ADR 025).** Mode 2 may run multiple rounds per
+spec: the first invocation, any NEEDS REVISION re-checks after engineer
+iterations, and any targeted re-checks following Mode 3 engineer
+dispatches are all separate Mode 2 rounds. All rounds share the single
+canonical path `.cato/state/run-N/compliance-check.md`; **prior rounds
+must be preserved, not overwritten.**
+
+Before writing your Mode 2 output:
+
+1. Read `.cato/state/run-N/compliance-check.md` to see whether prior
+   round content already exists.
+2. If the file exists with prior-round content: compose the new file
+   as `<existing content> + separator + your new round section`, where
+   the separator is a blank line, a `---` horizontal rule, another
+   blank line, then a header of the form
+   `# Compliance Check — run-N (<task>) — Round K`, with K being the
+   round number (1-indexed; round 1 if the file did not previously
+   exist).
+3. If the file does not exist (round 1): start with the same header
+   line, then write the round-1 content directly below it.
+4. Write the full concatenation to `.cato/state/run-N/compliance-check.md`.
+
+The latest verdict is always the bottom-most round section. Mode 3 and
+the reviewer read the file top-to-bottom and reach the operative
+verdict last. Inline references in code or in other state files that
+need to cite a specific round's content must cite the round explicitly
+(e.g., `compliance-check.md round 2 §6`)—not the file as a whole.
+
 Produce a compliance report with this structure:
 
 ### 1. Summary
@@ -189,6 +217,46 @@ PASS / NEEDS REVISION / FAIL — one of these three states.
 - NEEDS REVISION: implementation diverges from spec but issues are addressable;
   engineer should iterate
 - FAIL: fundamental mismatch with spec intent; spec may need re-examination
+
+**Distinguishing NEEDS REVISION from FAIL (ADR 024).** Compliance failure
+has two distinct sources, and the verdict must reflect which one. Choose
+FAIL—not NEEDS REVISION—whenever the source of the gap is the spec
+itself, not the engineer's implementation.
+
+The classifying question: *who must change something for the gap to
+close?*
+
+- If the engineer must change the implementation to match an unambiguous
+  spec → **NEEDS REVISION**. List the changes in §6 Required Actions.
+- If the spec is internally inconsistent (two sections of the spec
+  contradict each other), factually wrong (an assertion in the spec is
+  false on inspection), or in conflict with itself (e.g., asks for
+  behavior X while forbidding the only mechanism that produces X) →
+  **FAIL**. The user—not the engineer—must resolve the gap.
+
+You must NOT silently rewrite the spec to make the implementation pass.
+The spec is the user's approved artifact; changing it is the user's
+call, not yours. Issuing NEEDS REVISION to the engineer based on a
+spec interpretation the user has not seen is the same failure mode in
+disguise.
+
+When you choose FAIL on a spec inconsistency:
+
+1. Stop the compliance-check loop on the affected item.
+2. In §6, describe the inconsistency precisely: which spec sections
+   conflict, what the two possible interpretations are, and what you
+   would recommend. Do NOT include a proposed spec edit unless the user
+   has explicitly authorized one.
+3. The main session surfaces the FAIL to the user. The user resolves
+   the inconsistency by approving an amended spec, a documented
+   exception, or a different direction.
+4. Only after the user's resolution does Mode 2 reopen; the next round
+   re-checks against the resolved spec.
+
+Smaller-scale spec issues (e.g., a typo in a spec example that doesn't
+change behavior) may be flagged in §5 Engineer-Reported Issues or §6
+Required Actions for the user's attention without halting the run—but
+still must not be silently corrected. The user owns the spec.
 
 ### 2. Spec-by-spec walkthrough
 
