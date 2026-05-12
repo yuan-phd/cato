@@ -44,6 +44,7 @@ test-run-1/
 test-run-2/
 test-run-3/
 test-run-4/
+test-run-5/
 
 # Cato runtime state (per-workflow inter-agent handoff files; see ADR 020)
 .cato/
