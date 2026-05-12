@@ -733,3 +733,100 @@ that are internally inconsistent will silently route around the
 inconsistency via whatever tool happens to be available, and the
 visible output looks correct. The fix is to remove the route, not to
 formalize it.
+
+---
+
+## ADR 027: Tool-Call Discipline — Every Tool Call Needs Stated Purpose
+
+**Date**: 2026-05-12
+**Status**: Accepted
+
+### Context
+
+Run-5 surfaced an architect behavior that ADR 023 did not cover:
+during Mode 3 dispatch, the architect issued a `WebFetch` on
+`about:blank` — a URL placeholder with no fetchable content. The
+coordination report contained no explanation of what fact was being
+verified or why. The settings.local.json `ask`-rule for WebFetch
+intercepted the call and the user declined; without that interception,
+the spurious call would have happened silently and the audit trail
+would show nothing.
+
+ADR 023 covers the *claim* side of the architect's output: factual
+claims in reports must be verified before being written. It is a
+backward-looking check on what the report says. It does not cover
+the *action* side: why a tool call was issued in the first place. A
+tool call without a recorded purpose is the dual failure mode — not
+fabricating a claim, but firing an action that contributes no claim.
+
+In unattended operation (the direction Cato is heading), spurious
+tool calls would proceed without user interception. Even with
+interception, the audit trail loss is real: a call with no
+explanation in the report leaves no record of what the architect was
+trying to do.
+
+### Decision
+
+Every tool call the architect issues in any Mode must be tied to a
+purpose that ends up recorded in the resulting report. Two patterns
+are acceptable:
+
+1. **Forward**: before the call, the architect knows what it is
+   verifying, and the call's result is referenced in the resulting
+   spec / compliance report / coordination report.
+2. **Honest gap**: the architect cannot verify what it needs with
+   available tools. It states the gap in the report ("I cannot
+   verify X with my tool scope; escalating to user") and does not
+   call any tool as a placeholder or substitute.
+
+Not acceptable:
+- Calling a tool with no recorded purpose.
+- Calling a tool whose target is a placeholder (e.g., `about:blank`,
+  or a URL the architect has no reason to fetch).
+- Calling a tool and discarding the result without note in the
+  report.
+
+If a tool call's result turns out not to inform any claim in the
+final report (e.g., the search returned nothing useful, or the
+verification target turned out to be irrelevant), the architect
+states this explicitly in §5 Open Concerns or the analogous section
+rather than leaving the call un-narrated.
+
+This ADR complements ADR 023: ADR 023 covers the claim side ("text
+in the report must be backed by verification"); ADR 027 covers the
+action side ("tool calls must be backed by purpose"). Together they
+close both directions of the same general failure: architect taking
+silent actions or making silent assertions.
+
+### Consequences
+
+- `architect.md` "Your Tools" section adds the tool-call discipline
+  rule documenting the two acceptable patterns and the three
+  not-acceptable forms.
+- Coordination reports may grow slightly when a tool call's result
+  turns out non-informative — the architect notes it rather than
+  hiding it. Acceptable: an explicit "this call didn't pay off" is
+  cheaper than a silent unexplained call in the transcript.
+- `settings.local.json`'s WebFetch ask-rule remains the
+  defense-in-depth mechanism: it catches spurious external calls
+  even before this ADR's procedural rule has a chance to apply.
+  The rule and the settings work together — the rule is the
+  architect's responsibility, the settings are the user's
+  belt-and-braces.
+- ADR 023 is not superseded. Both rules apply: factual claims still
+  need verification (ADR 023); tool calls still need stated purpose
+  (ADR 027).
+- This rule applies to all architect Modes (1, 2, 3) and uses the
+  architect's full tool inventory (Read, Grep, Glob, WebSearch,
+  WebFetch, Write). Write is already scoped per ADR 021 and tracked
+  by the file system; this ADR primarily affects the read-and-fetch
+  tools whose calls otherwise leave little trace.
+
+### Notes
+
+The `about:blank` event survived to be noticed only because the
+WebFetch ask-rule was active. In a less-protected setup the call
+would have happened silently. The lesson generalizes: behavioral
+rules and tool permissions are not redundant — they protect
+different failure modes (intent vs capability), and removing either
+one weakens the system.
