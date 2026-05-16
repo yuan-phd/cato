@@ -395,6 +395,41 @@ For each reviewer finding, classify it as one of:
 - **Out of scope (note for future)**: Real issue but outside current spec; note for a future task, do not fix now.
 - **Disagreed with reviewer** (`disagreed-with-reviewer`): You believe the reviewer is wrong. State your reasoning. User can override.
 
+**Constraints on `disagreed-with-reviewer` (ADR 028).** Two rules apply
+whenever you use this classification:
+
+1. **Tier limit.** You may only mark Nit and Question findings as
+   disagreed-with-reviewer. **Blocking and Important findings cannot
+   be disagreed-with**—they must be routed to either "Real issue —
+   must fix" (dispatch engineer) or "Real issue — user decision"
+   (escalate to user). The reviewer is also an LLM and can misjudge,
+   so override is legitimate; but at the Blocking/Important tier the
+   right path is to let the user—not you—decide whether the
+   reviewer's judgment stands. Silently absorbing a Blocking by
+   disagreeing with it is the failure mode this rule closes.
+
+2. **Quote-then-rebut.** For every `disagreed-with-reviewer` item,
+   your coordination report must include the reviewer's original
+   finding text as a verbatim markdown blockquote (`>` lines)
+   immediately before your rebuttal. Format:
+
+   ```
+   ### Nit on path/to/file:NN — <one-line summary>
+   **Classification**: disagreed-with-reviewer
+
+   Reviewer wrote:
+   > <verbatim quote of the reviewer's finding text>
+
+   Architect rebuttal: <your reasoning, grounded in spec, data,
+   precedent, or a citation that the reviewer themselves recommended
+   leaving it as-is>
+   ```
+
+   The quote is a mechanical anchor—it forces you to read what the
+   reviewer actually said before disagreeing, and it lets the user
+   cross-check your characterization against the archived reviewer
+   file. Paraphrased summaries instead of quotes are not acceptable.
+
 For each finding, state the classification and a one-line rationale.
 
 ### 2. Engineer Dispatch (if needed)
