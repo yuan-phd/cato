@@ -830,3 +830,123 @@ would have happened silently. The lesson generalizes: behavioral
 rules and tool permissions are not redundant — they protect
 different failure modes (intent vs capability), and removing either
 one weakens the system.
+
+---
+
+## ADR 028: Disagreed-with-Reviewer Requires Tier Limit and Quote-then-Rebut
+
+**Date**: 2026-05-13
+**Status**: Accepted
+
+### Context
+
+ADR 006 defined five Mode 3 triage classifications, one of which is
+`disagreed-with-reviewer`: the architect believes a reviewer finding is
+wrong and explains why. This is legitimate on the merits — the reviewer
+is also an LLM and can misjudge, so the architect (as code owner, per
+Google's eng-practices, ADR 005) retains the authority to override.
+
+But the override path is also the most natural exit for sunk-cost
+bias: the architect designed the spec, the implementation matches the
+architect's intent, and the reviewer's finding feels like an annoying
+edge case. Six runs of data show the failure surface is real:
+
+- Run-3: architect fabricated a `git add -f` precedent in the
+  coordination report (closed by ADR 023's factual-claim verification
+  rule).
+- Run-4: architect silently corrected a user-approved spec inconsistency
+  rather than escalating to the user (closed by ADR 024's FAIL vs
+  NEEDS REVISION rule).
+- Run-6: two `disagreed-with-reviewer` items — both correctly grounded
+  on the merits, but illustrating how the classification's only
+  constraint ("state your reasoning") relies entirely on the
+  architect's honesty.
+
+ADR 023 / 024 / 027 close adjacent failure paths but do not constrain
+the `disagreed-with-reviewer` exit itself. Two specific weaknesses
+remain:
+
+1. The classification can be applied to any tier. In particular, a
+   Blocking or Important finding can be disagreed-with-reviewer and
+   absorbed entirely by the architect without escalating to the user
+   — silently nulling a finding the reviewer judged severe.
+2. The reasoning the architect provides is unconstrained text. The
+   architect can paraphrase the reviewer's finding (with subtle
+   shading), or describe it in their own words, and then rebut the
+   paraphrase. The reviewer's actual words never appear in the
+   coordination report, so the user has to cross-check the archived
+   reviewer file to see what was really said.
+
+Both weaknesses are silent-absorption risks. This ADR closes them.
+
+### Decision
+
+When using the `disagreed-with-reviewer` classification in Mode 3:
+
+1. **Tier limit.** `disagreed-with-reviewer` applies only to Nit and
+   Question findings. Blocking and Important findings cannot be
+   marked `disagreed-with-reviewer`. If the architect believes a
+   Blocking or Important finding is wrong, the correct routes are:
+   - "Real issue — must fix" (dispatch engineer to address it), or
+   - "Real issue — user decision" (escalate to user with the
+     architect's view as input).
+
+   The architect does not get to unilaterally null a high-tier
+   finding. The user does.
+
+2. **Quote-then-rebut.** For every `disagreed-with-reviewer` item in
+   the coordination report, the reviewer's original finding text
+   must appear as a verbatim markdown blockquote (`>` lines)
+   immediately before the architect's rebuttal. Paraphrase or
+   summary in place of the quote is not acceptable. The quote
+   serves two purposes: it forces the architect to read what the
+   reviewer actually said, and it lets the user cross-check the
+   characterization against the archived reviewer file without
+   navigating away from the coordination report.
+
+The two rules apply together. Tier limit narrows where the
+classification is allowed; quote-then-rebut tightens how the
+classification is justified.
+
+### Consequences
+
+- `architect.md` Mode 3 Findings Triage section is updated with both
+  rules and a format example.
+- Coordination reports for runs with `disagreed-with-reviewer` items
+  grow slightly (the quoted reviewer text adds a few lines per item).
+  Acceptable: the audit cost is offset by the user's ability to
+  verify the architect's characterization in-place.
+- User touch count is unchanged in practice. Across runs 1–6, no
+  Blocking or Important finding was ever marked
+  `disagreed-with-reviewer` — all four observed disagreed items were
+  Nit tier. The tier limit codifies the existing implicit pattern
+  rather than introducing new friction.
+- The override path remains open at low tiers (Nit/Question), where
+  it has legitimate use — reviewer style preferences, reviewer's own
+  "leave as-is" notes, and similar. ADR 028 does not eliminate
+  architect override; it scopes it.
+- ADR 006's five-class triage is preserved. ADR 028 adds constraints
+  on one class, not a new class. (A future "reviewer self-resolved"
+  sixth class remains a candidate observation worth tracking but is
+  not introduced here.)
+- ADR 023 (factual claims need verification) and ADR 024 (Mode 2
+  escalation on spec inconsistency) continue to apply. ADR 028 is
+  the third leg of the same general principle: the architect must
+  surface gaps, not absorb them.
+- Future ensemble review (gpt-reviewer, per the roadmap) can provide
+  an independent second opinion that the architect cannot override
+  unilaterally. ADR 028's quote-then-rebut format will compose
+  cleanly: multiple reviewers' findings can be quoted side by side
+  before the architect's rebuttal. The tier limit will likely
+  remain even with ensemble review.
+
+### Notes
+
+The pattern across ADR 023 / 024 / 027 / 028 is consistent: every
+"silent absorption" exit the architect has access to gets a procedural
+narrowing. The narrowings are cheap individually and they compose
+into a system where the architect's discretion is bounded by
+mechanical artifacts (quotes, tool calls, escalations) the user can
+audit. This is the Cato design philosophy concentrated: procedural
+integrity over persuasion, applied to the architect's role
+specifically.
